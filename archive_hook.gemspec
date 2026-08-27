@@ -9,16 +9,12 @@ Gem::Specification.new do |spec|
   spec.authors       = ["alvir"]
   spec.email         = ["shurik.v.r@gmail.com"]
 
-  spec.summary       = %q{Archive ActiveRecord models to additional tables}
-  spec.description   = %q{Archive ActiveRecord models to additional tables}
-  spec.homepage      = "https://github.com/krononsoft/archive_hook"
+  spec.summary       = %q{Archive ActiveRecord models (and their dependents) to parallel _archive tables}
+  spec.description   = %q{Moves old ActiveRecord records into sibling <table>_archive tables, cascading through a declared parent/child dependency tree, with support for restoring them back.}
+  spec.homepage      = "https://github.com/alvir/archive_hook"
   spec.license       = "MIT"
 
-  # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
-  # to allow pushing to a single host or delete this section to allow pushing to any host.
   if spec.respond_to?(:metadata)
-    spec.metadata["allowed_push_host"] = ""
-
     spec.metadata["homepage_uri"] = spec.homepage
     spec.metadata["source_code_uri"] = spec.homepage
     # spec.metadata["changelog_uri"] = ""
