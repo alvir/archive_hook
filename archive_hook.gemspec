@@ -32,7 +32,11 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  # Only ActiveRecord (+ Arel, bundled with it) is used at runtime; no need for full Rails.
+  spec.add_dependency "activerecord", ">= 5.2", "< 9"
+
   spec.add_development_dependency "bundler", "~> 2.3"
-  spec.add_development_dependency "rake", "~> 10.0"
+  spec.add_development_dependency "pg"
+  spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "rspec", "~> 3.0"
 end

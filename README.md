@@ -48,6 +48,12 @@ end
 Run the generator for the root model and for every model listed under a `children:` entry in
 your dependency mapping (see below) — each one needs its own `_archive` table.
 
+> **Postgres only (for now):** the generator's `CREATE TABLE ... (LIKE ...)` is Postgres syntax.
+> On other databases, write the `_archive` table migration by hand instead — the archiving and
+> restoring API itself (`.archive`, `.archive_scope`, `.restore_scope`) is plain SQL
+> (`INSERT INTO ... SELECT`, `DELETE ... WHERE id IN (...)`) run through the ActiveRecord
+> connection, so it isn't tied to any particular adapter.
+
 `ArchiveHook` reads the columns off the model at call time, so the archive table just needs to
 have matching column names — it doesn't need matching constraints, indexes, or an FK to the
 original table.

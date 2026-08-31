@@ -1,4 +1,5 @@
 require "bundler/setup"
+require "logger" # newer concurrent-ruby no longer requires this, but activesupport needs it loaded
 require "archive_hook"
 
 RSpec::Matchers.define_negated_matcher :not_change, :change
