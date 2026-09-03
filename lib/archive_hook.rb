@@ -1,7 +1,29 @@
 require "archive_hook/version"
 
 module ArchiveHook
+  # Identifiers are interpolated straight into SQL, so anything that needs
+  # quoting -- a column called "default", "order" or "group", a table name that
+  # collides with a keyword -- has to be quoted or Postgres rejects the
+  # statement with a syntax error.
+  module Quoting
+    private
+
+    def quote_columns(column_names)
+      column_names.map { |name| connection.quote_column_name(name) }.join(",")
+    end
+
+    def quote_table(name)
+      connection.quote_table_name(name)
+    end
+
+    def connection
+      ActiveRecord::Base.connection
+    end
+  end
+
   class ScopeArchiver
+    include Quoting
+
     def initialize(dependencies: {})
       @dependencies = dependencies
     end
@@ -37,23 +59,24 @@ module ArchiveHook
     end
 
     def archive_records_sql(scope)
-      table_name = scope.table_name
-      attributes_list = scope.column_names.join(",")
+      attributes_list = quote_columns(scope.column_names)
       <<-SQL
-        INSERT INTO #{table_name}_archive (#{attributes_list})
+        INSERT INTO #{quote_table("#{scope.table_name}_archive")} (#{attributes_list})
         #{scope.select(attributes_list).to_sql}
       SQL
     end
   end
 
   class ScopeRestorer
+    include Quoting
+
     def initialize(dependencies: {})
       @dependencies = dependencies
     end
 
     def call(scope)
       parent = scope.model
-      table_name = "#{scope.table_name}_archive as #{scope.table_name}"
+      table_name = "#{quote_table("#{scope.table_name}_archive")} as #{quote_table(scope.table_name)}"
       parent_id_groups = scope.from(table_name).in_batches.map { |relation| relation.pluck(:id) }
       parent_id_groups.each do |parent_ids|
         restore_by_ids(parent, parent_ids)
@@ -78,22 +101,22 @@ module ArchiveHook
     end
 
     def restore_by_ids(model, ids)
-      table_name = model.table_name
       ActiveRecord::Base.transaction do
-        ActiveRecord::Base.connection.execute(Arel.sql(restore_records_sql(model, ids)))
-        ActiveRecord::Base.connection.execute(Arel.sql <<-SQL
-          DELETE FROM #{table_name}_archive WHERE id IN (#{ids.join(', ')})
+        connection.execute(Arel.sql(restore_records_sql(model, ids)))
+        connection.execute(Arel.sql <<-SQL
+          DELETE FROM #{quote_table("#{model.table_name}_archive")}
+          WHERE #{connection.quote_column_name(model.primary_key)} IN (#{ids.join(', ')})
         SQL
         )
       end
     end
 
     def restore_records_sql(model, ids)
-      table_name = model.table_name
-      attributes_list = model.column_names.join(",")
+      attributes_list = quote_columns(model.column_names)
       <<-SQL
-        INSERT INTO #{table_name} (#{attributes_list})
-        SELECT #{attributes_list} FROM #{table_name}_archive WHERE id IN (#{ids.join(', ')})
+        INSERT INTO #{quote_table(model.table_name)} (#{attributes_list})
+        SELECT #{attributes_list} FROM #{quote_table("#{model.table_name}_archive")}
+        WHERE #{connection.quote_column_name(model.primary_key)} IN (#{ids.join(', ')})
       SQL
     end
   end
@@ -101,7 +124,8 @@ module ArchiveHook
   class << self
     def archive(root, archive_date, dependencies)
       column = dependencies[root] && dependencies[root][:column] || :created_at
-      base_scope = root.where("#{column} < ?", archive_date)
+      quoted_column = ActiveRecord::Base.connection.quote_column_name(column)
+      base_scope = root.where("#{quoted_column} < ?", archive_date)
       ScopeArchiver.new(dependencies: dependencies).call(base_scope)
     end
 
